@@ -150,6 +150,24 @@ class SecureJSONTransportTest(unittest.TestCase):
             authorization_headers, ["Bearer token-one", "Bearer token-two"]
         )
 
+    def test_connection_reset_is_normalized_without_upstream_detail(self):
+        opener = mock.Mock()
+        opener.open.side_effect = ConnectionResetError("upstream-secret-detail")
+
+        transport = SecureJSONTransport(
+            "http://127.0.0.1:8080/api/v1",
+            lambda: "admin-jwt",
+            opener=opener,
+        )
+
+        with self.assertRaises(Sub2APIError) as caught:
+            transport("GET", "/admin/groups/all", None, 2)
+
+        self.assertEqual(
+            str(caught.exception), "Sub2API request transport failed"
+        )
+        self.assertNotIn("upstream-secret-detail", str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

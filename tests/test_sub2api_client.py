@@ -97,6 +97,25 @@ class Sub2APIClientTest(unittest.TestCase):
         self.assertIn("page=1", transport.calls[0][1])
         self.assertIn("page=2", transport.calls[1][1])
 
+    def test_rejects_invalid_pagination_metadata_before_create(self):
+        cases = [
+            {"items": [], "page": True, "pages": 1},
+            {"items": [], "page": 2, "pages": 2},
+            {"items": [], "page": 1, "pages": 0},
+            {"items": [], "page": 1, "pages": False},
+        ]
+        for data in cases:
+            with self.subTest(data=data):
+                client = Sub2APIClient(
+                    "http://localhost/api/v1",
+                    "token",
+                    transport=RecordingTransport([data]),
+                )
+                with self.assertRaisesRegex(
+                    Sub2APIError, "pagination metadata is invalid"
+                ):
+                    client.list_existing_grok_accounts()
+
     def test_create_payload_contains_exactly_one_sso_and_requested_settings(self):
         transport = RecordingTransport([{
             "created": [{"account": {"id": 501, "expires_at": None}}],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import json
 import urllib.error
@@ -129,7 +130,12 @@ class SecureJSONTransport:
         except urllib.error.HTTPError as exc:
             reason = self._safe_http_reason(exc)
             raise Sub2APIError(f"HTTP {exc.code} ({reason})") from None
-        except (urllib.error.URLError, TimeoutError):
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            http.client.HTTPException,
+        ):
             raise Sub2APIError("Sub2API request transport failed") from None
         try:
             envelope = json.loads(raw)

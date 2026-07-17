@@ -83,8 +83,17 @@ class Sub2APIClient:
                     "auto_pause_on_expired": account.get("auto_pause_on_expired"),
                 }
                 accounts_by_name.setdefault(name, []).append(snapshot)
-            pages = data.get("pages", 1)
-            if not isinstance(pages, int) or page >= pages:
+            response_page = data.get("page")
+            pages = data.get("pages")
+            if (
+                type(response_page) is not int
+                or type(pages) is not int
+                or response_page != page
+                or pages < 1
+                or pages < page
+            ):
+                raise Sub2APIError("Grok account pagination metadata is invalid")
+            if page == pages:
                 return accounts_by_name
             page += 1
 
