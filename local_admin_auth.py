@@ -75,8 +75,36 @@ def load_local_admin_material(
     jwt_secret = app_env.get("JWT_SECRET", "")
     db_user = db_env.get("POSTGRES_USER", "")
     db_name = db_env.get("POSTGRES_DB", "")
-    if not jwt_secret or not db_user or not db_name:
+    if not db_user or not db_name:
         raise RuntimeError("required Sub2API container environment is missing")
+
+    psql_prefix = [
+        "sudo",
+        "docker",
+        "exec",
+        "sub2api-postgres",
+        "psql",
+        "-U",
+        db_user,
+        "-d",
+        db_name,
+        "--tuples-only",
+        "--no-align",
+    ]
+    # Runtime bootstrap deliberately lets the persisted secret override a stale
+    # container value so every replica signs with the same key.
+    persisted_secret = run(
+        psql_prefix
+        + [
+            "-c",
+            "SELECT value FROM security_secrets "
+            "WHERE key='jwt_secret' LIMIT 1",
+        ]
+    ).strip()
+    if persisted_secret and "\t" not in persisted_secret:
+        jwt_secret = persisted_secret
+    if not jwt_secret:
+        raise RuntimeError("Sub2API runtime JWT secret is missing")
 
     query = (
         "SELECT id,email,password_hash,role,status FROM users "

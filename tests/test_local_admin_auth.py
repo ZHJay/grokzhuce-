@@ -93,6 +93,20 @@ class LocalAdminAuthTest(unittest.TestCase):
         self.assertIn("psql", commands[-1])
         self.assertIn("WHERE role='admin'", commands[-1][-1])
 
+    def test_load_local_admin_material_prefers_persisted_runtime_jwt_secret(self):
+        def run(command):
+            if command[2] == "inspect" and command[3] == "sub2api":
+                return '["JWT_SECRET=stale-container-secret"]'
+            if command[2] == "inspect" and command[3] == "sub2api-postgres":
+                return '["POSTGRES_USER=dbuser","POSTGRES_DB=dbname"]'
+            if "security_secrets" in command[-1]:
+                return "persisted-runtime-secret\n"
+            return "1\tadmin@example.com\thash\tadmin\tactive\n"
+
+        _, secret = load_local_admin_material(run=run)
+
+        self.assertEqual(secret, "persisted-runtime-secret")
+
     def test_build_admin_jwt_rejects_inactive_or_non_admin_identity(self):
         identities = [
             AdminIdentity(1, "a@example.com", "hash", "user", "active"),
