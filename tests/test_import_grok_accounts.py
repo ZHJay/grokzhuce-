@@ -41,6 +41,7 @@ class ImporterCLITest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "accounts.txt"
             source.write_text("a@example.com|secret|sso-token\n")
+            source.chmod(0o600)
             output = io.StringIO()
             with mock.patch(
                 "import_grok_accounts.LocalAdminTokenProvider",
@@ -57,6 +58,7 @@ class ImporterCLITest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "accounts.txt"
             source.write_text("a@example.com|secret|sso-token\n")
+            source.chmod(0o600)
             stderr = io.StringIO()
             with mock.patch(
                 "import_grok_accounts.LocalAdminTokenProvider",
@@ -66,6 +68,28 @@ class ImporterCLITest(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertIn("fatal: active admin identity is required", stderr.getvalue())
+        self.assertNotIn("Traceback", stderr.getvalue())
+
+    def test_main_rejects_insecure_source_before_http_client(self):
+        fake_client = mock.Mock()
+        fake_client.get_grok_group_id.return_value = 3
+        fake_client.list_existing_accounts.return_value = {}
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "accounts.txt"
+            source.write_text("a@example.com|secret|sso-token\n")
+            source.chmod(0o644)
+            stderr = io.StringIO()
+            with mock.patch(
+                "import_grok_accounts.LocalAdminTokenProvider",
+                return_value=object(),
+            ), mock.patch(
+                "import_grok_accounts.Sub2APIClient", return_value=fake_client
+            ) as client_class, contextlib.redirect_stderr(stderr):
+                exit_code = main([str(source), "--dry-run"])
+
+        self.assertEqual(exit_code, 1)
+        client_class.assert_not_called()
+        self.assertIn("mode 0600", stderr.getvalue())
         self.assertNotIn("Traceback", stderr.getvalue())
 
     def test_report_never_chmods_a_swapped_destination_symlink(self):

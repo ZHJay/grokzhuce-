@@ -19,6 +19,7 @@
 - 创建 `tests/test_account_output.py`：覆盖输出内容和 `0600` 权限。
 - 修改 `api_solver.py`、`TurnstileSolver.bat`：默认及一键启动均绑定 loopback。
 - 修改 `sub2api_client.py`、`import_grok_accounts.py`：快照覆盖全部平台账号。
+- 创建 `account_input.py` 及测试：拒绝 symlink、非普通或 Unix 非 `0600` 输入。
 - 修改 `import_flow.py`：非合规创建结果不写入伪造的内存快照。
 - 修改对应测试：覆盖跨平台同名账号和非合规创建的人工恢复契约。
 - 修改 `README.md`：新增端到端 import 主章节，并更新功能、结构和输出说明。
@@ -182,10 +183,10 @@ git diff -- README.md account_record.py account_output.py grok.py tests/test_acc
 - [ ] **步骤 2：提交**
 
 ```bash
-git add .gitignore README.md account_record.py account_output.py grok.py \
+git add .gitignore README.md account_record.py account_input.py account_output.py grok.py \
   api_solver.py TurnstileSolver.bat \
   import_flow.py import_grok_accounts.py sub2api_client.py \
-  tests/test_account_record.py tests/test_account_output.py \
+  tests/test_account_input.py tests/test_account_record.py tests/test_account_output.py \
   tests/test_import_grok_accounts.py tests/test_import_postconditions.py tests/test_sub2api_client.py \
   docs/superpowers/specs/2026-07-17-readme-import-workflow-design.md \
   docs/superpowers/plans/2026-07-17-readme-import-workflow.md

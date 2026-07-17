@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from account_input import read_private_account_lines
 from account_record import RecordValidationError, parse_account_records
 from import_flow import ImportItem, ImportSummary, run_import
 from local_admin_token import LocalAdminTokenProvider
@@ -80,9 +81,7 @@ def write_report(path: Path, summary: ImportSummary) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        records = parse_account_records(
-            args.input_file.read_text(encoding="utf-8").splitlines()
-        )
+        records = parse_account_records(read_private_account_lines(args.input_file))
         token_provider = LocalAdminTokenProvider()
         client = Sub2APIClient(args.base_url, token_provider)
         group_id = client.get_grok_group_id()
