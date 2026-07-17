@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import re
-import urllib.error
-import urllib.request
 from collections.abc import Callable
 from typing import Any
 
 from account_record import AccountRecord
-
-
-class Sub2APIError(RuntimeError):
-    """A sanitized operational failure safe for logs and reports."""
+from http_json import SecureJSONTransport, Sub2APIError
 
 
 Transport = Callable[[str, str, dict[str, Any] | None, int], Any]
@@ -23,58 +17,19 @@ class Sub2APIClient:
     def __init__(
         self,
         base_url: str,
-        admin_jwt: str,
+        admin_jwt: str | Callable[[], str],
         *,
         timeout: int = 180,
         transport: Transport | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self._admin_jwt = admin_jwt
         self.timeout = timeout
-        self._transport = transport or self._http_transport
-
-    def _http_transport(
-        self,
-        method: str,
-        path: str,
-        payload: dict[str, Any] | None,
-        timeout: int,
-    ) -> Any:
-        body = None
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {self._admin_jwt}",
-            "User-Agent": "sub2api-grok-importer/1.0",
-        }
-        if payload is not None:
-            body = json.dumps(payload, separators=(",", ":")).encode()
-            headers["Content-Type"] = "application/json"
-        request = urllib.request.Request(
-            f"{self.base_url}{path}", data=body, headers=headers, method=method
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                envelope = json.load(response)
-        except urllib.error.HTTPError as exc:
-            reason = self._safe_http_reason(exc)
-            raise Sub2APIError(f"HTTP {exc.code} ({reason})") from None
-        except (urllib.error.URLError, TimeoutError):
-            raise Sub2APIError("Sub2API request transport failed") from None
-        except (json.JSONDecodeError, ValueError):
-            raise Sub2APIError("Sub2API returned invalid JSON") from None
-
-        if not isinstance(envelope, dict) or envelope.get("code") != 0:
-            raise Sub2APIError("Sub2API returned an unsuccessful envelope")
-        return envelope.get("data")
-
-    @staticmethod
-    def _safe_http_reason(exc: urllib.error.HTTPError) -> str:
-        try:
-            envelope = json.loads(exc.read().decode("utf-8", errors="replace"))
-        except (json.JSONDecodeError, OSError, UnicodeError):
-            return "UNKNOWN"
-        candidate = str(envelope.get("reason", "")).strip().upper()
-        return candidate if re.fullmatch(r"[A-Z0-9_]{1,80}", candidate) else "UNKNOWN"
+        if transport is not None:
+            self._transport = transport
+        else:
+            token_provider = (
+                admin_jwt if callable(admin_jwt) else lambda: admin_jwt
+            )
+            self._transport = SecureJSONTransport(base_url, token_provider)
 
     def _request(
         self, method: str, path: str, payload: dict[str, Any] | None = None
