@@ -11,7 +11,8 @@
 1. `grok.py` 的输出文件名保持 `keys/grok_<时间戳>_<数量>.txt` 不变。
 2. 每条成功记录由仅写入 SSO 改为 `email|password|sso`。
 3. 格式化规则放在 L0 公理层 `account_record.py`，注册端与 importer 共用同一输入契约。
-4. README 把“导入到 Sub2API”作为一级主章节，放在注册输出说明之后、普通输出示例之前。
+4. 私密追加写入放在 L1 积木层 `account_output.py`；Unix 创建或重开文件时强制 `0600`，且拒绝跟随 symlink。
+5. README 把“导入到 Sub2API”作为一级主章节，放在注册输出说明之后、普通输出示例之前。
 
 ## README 用户路径
 
@@ -29,6 +30,7 @@
 - 示例只使用占位主机、路径和域名。
 - 明确说明账号名称为 `email|password`，密码会出现在 Sub2API 账号名称及数据库中。
 - 输入文件、`.env`、报告、JWT、Cookie 和 SSH 凭据不得提交到 Git。
+- Solver 示例必须显式绑定 `127.0.0.1`，注册输出在 Unix 上强制为 `0600`。
 - HTTP 默认只使用服务器 loopback；HTTPS 以外的远程 origin 会被拒绝。
 
 ## 验证

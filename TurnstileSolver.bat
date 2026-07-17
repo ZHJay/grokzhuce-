@@ -1,1 +1,1 @@
-python api_solver.py --browser_type camoufox --thread 5 --debug
+python api_solver.py --host 127.0.0.1 --browser_type camoufox --thread 5 --debug

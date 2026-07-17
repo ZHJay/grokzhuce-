@@ -27,17 +27,17 @@ python3 -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-在 `.env` 中填写必需的 `MAIL_BASE_URL`、`MAIL_ADMIN_PASSWORD`、`MAIL_DOMAIN`；按需填写 `MAIL_SITE_PASSWORD` 和 `YESCAPTCHA_KEY`。兼容别名见 `.env.example`。
+在 `.env` 中填写必需的 `MAIL_BASE_URL`、`MAIL_ADMIN_PASSWORD`、`MAIL_DOMAIN`；按需填写 `MAIL_SITE_PASSWORD` 和 `YESCAPTCHA_KEY`。字段说明见 `.env.example`。
 
 ### 2. 启动 Turnstile Solver
 
 未配置 `YESCAPTCHA_KEY` 时执行：
 
 ```bash
-python3 api_solver.py --browser_type camoufox --thread 5 --debug
+python3 api_solver.py --host 127.0.0.1 --browser_type camoufox --thread 5 --debug
 ```
 
-默认监听 `http://127.0.0.1:5072`。Windows 也可双击 `TurnstileSolver.bat`。
+该命令显式限制 Solver 监听 `http://127.0.0.1:5072`。Windows 也可双击 `TurnstileSolver.bat`。
 
 ### 3. 运行注册程序
 
@@ -83,12 +83,12 @@ email|password|sso
 
 Importer 应在 Sub2API 所在服务器运行，并要求：
 
-- Python 3；importer 本身只使用标准库；
+- Python 3.10+；importer 本身只使用标准库；
 - Docker daemon 正在运行，当前用户可以执行 `sudo docker`；
 - Sub2API 容器名为 `sub2api`；PostgreSQL 容器名为 `sub2api-postgres`；
 - Sub2API API 默认监听 `http://127.0.0.1:8080/api/v1`；
 - 数据库内至少存在一个 active admin；
-- 存在唯一的 active `Grok` / `grok` 分组。
+- 存在唯一的 active `Grok` / `grok` 分组；接口契约按 Sub2API `v0.1.156`（revision `12f991d`）核对，其他版本必须先通过 dry-run 验证。
 
 在服务器检查：
 
@@ -170,8 +170,8 @@ summary total=100 created=95 skipped=5 failed=0
 | 退出码 | 含义 |
 |---:|---|
 | `0` | dry-run 成功，或 apply 没有失败项 |
-| `1` | 输入、认证、Docker、HTTP 或其他前置条件失败 |
-| `2` | apply 完成，但至少一个账号导入失败 |
+| `1` | 运行时 fatal；可能在 apply 已创建部分账号后发生，例如报告写入失败 |
+| `2` | apply 至少一项失败，或 CLI 参数/用法错误（argparse） |
 
 报告文件默认权限为 `600`，只包含行号、状态、账号 ID 和脱敏错误，不包含邮箱、密码、SSO 或 JWT。
 
@@ -195,6 +195,6 @@ summary total=100 created=95 skipped=5 failed=0
 
 1. 不要提交 `.env`、`keys/`、`private/`、`reports/`、SSH 私钥或数据库凭据。
 2. 不要把真实账号内容粘贴到 Issue、日志或聊天中。
-3. 输入和报告文件保持 `600` 权限，用完后按你的保留策略安全处理。
+3. Unix 上注册输出、输入和报告保持 `600`；Windows 上使用目录 ACL 保护 `keys/`。
 4. Importer 使用服务器本地短期管理员 JWT，只保存在内存中，并会在长批次中提前刷新。
 5. 凭据请求禁用环境代理和自动重定向，避免 Authorization 或 SSO 泄漏到其他 origin。

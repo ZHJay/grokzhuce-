@@ -4,7 +4,7 @@
 
 **目标：** 让注册输出直接符合 importer 契约，并提供一套可复制执行的 Sub2API 导入说明。
 
-**架构：** `account_record.py` 继续作为 L0 公理层，新增三字段序列化函数；`grok.py` 只调用该契约，不新增格式规则。README 以注册→上传→dry-run→apply→报告→续跑为主路径，所有示例保持脱敏。
+**架构：** `account_record.py` 继续作为 L0 公理层，新增三字段序列化函数；L1 积木层 `account_output.py` 负责私密追加；`grok.py` 只在现有 `file_lock` 中调用该能力。README 以注册→上传→dry-run→apply→报告→续跑为主路径，所有示例保持脱敏。
 
 **技术栈：** Python 3 标准库、`unittest`、Markdown、Git。
 
@@ -13,8 +13,11 @@
 ## 文件结构
 
 - 修改 `account_record.py`：新增 `format_account_record` 三字段序列化契约。
+- 创建 `account_output.py`：以私密权限安全追加注册记录。
 - 修改 `grok.py`：注册成功时写入完整三字段记录。
 - 修改 `tests/test_account_record.py`：覆盖精确输出与歧义分隔符拒绝。
+- 创建 `tests/test_account_output.py`：覆盖输出内容和 `0600` 权限。
+- 修改 `api_solver.py`、`TurnstileSolver.bat`：默认及一键启动均绑定 loopback。
 - 修改 `README.md`：新增端到端 import 主章节，并更新功能、结构和输出说明。
 - 修改 `.gitignore`：忽略 README 导入流程创建的 `private/` 和 `reports/`。
 
@@ -75,28 +78,35 @@ python3 -m unittest tests.test_account_record -v
 ### 任务 2：注册程序写入完整账号记录
 
 **文件：**
+- 创建：`account_output.py`
+- 创建：`tests/test_account_output.py`
 - 修改：`grok.py:1-10,255-270`
 
-- [ ] **步骤 1：接入共享契约**
+- [ ] **步骤 1：编写失败测试并验证 RED**
 
 ```python
-from account_record import format_account_record
+append_account_record(path, "user@example.com", "password123", "sso-token")
+assert path.read_text() == "user@example.com|password123|sso-token\n"
+assert stat.S_IMODE(path.stat().st_mode) == 0o600
 ```
 
-- [ ] **步骤 2：替换成功写入逻辑**
+运行 `python3 -m unittest tests.test_account_output -v`，预期因模块尚不存在而失败。
+
+- [ ] **步骤 2：实现私密追加并接入注册流程**
 
 ```python
-record_line = format_account_record(email, password, sso)
-with open(output_file, "a", encoding="utf-8") as output:
-    output.write(record_line + "\n")
+from account_output import append_account_record
+
+append_account_record(output_file, email, password, sso)
 ```
 
-保持现有 `file_lock`、失败清理和成功计数逻辑不变。
+`account_output.py` 使用 `os.open(..., 0o600)`、可用时的 `O_NOFOLLOW` 和 `fchmod`；保持现有 `file_lock`、失败清理和成功计数逻辑不变。
 
-- [ ] **步骤 3：执行语法与完整回归测试**
+- [ ] **步骤 3：验证 GREEN、语法与完整回归**
 
 ```bash
-python3 -m compileall -q account_record.py grok.py
+python3 -m unittest tests.test_account_output -v
+python3 -m compileall -q account_record.py account_output.py grok.py
 python3 -m unittest discover -s tests -v
 ```
 
@@ -107,10 +117,14 @@ python3 -m unittest discover -s tests -v
 **文件：**
 - 修改：`README.md`
 - 修改：`.gitignore`
+- 修改：`api_solver.py`
+- 修改：`TurnstileSolver.bat`
 
 - [ ] **步骤 1：更新功能和项目结构**
 
 补充三字段安全输出、严格串行 Sub2API importer 及相关模块。
+
+同时将 Solver 默认 host 和 Windows 一键命令固定为 `127.0.0.1`，避免默认暴露到所有接口。
 
 - [ ] **步骤 2：新增“导入到 Sub2API”一级章节**
 
@@ -141,7 +155,7 @@ README 只能使用真实存在的 `input_file`、`--dry-run`、`--apply`、`--b
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 -m compileall -q account_record.py grok.py import_grok_accounts.py
+python3 -m compileall -q account_record.py account_output.py grok.py import_grok_accounts.py
 ```
 
 另外检查 README 不含私人 IP、真实邮箱、SSO、JWT、密码、密钥路径或账号文件内容，并执行 `git diff --check`。
@@ -153,13 +167,15 @@ python3 -m compileall -q account_record.py grok.py import_grok_accounts.py
 ```bash
 git status --short
 git diff --check
-git diff -- README.md account_record.py grok.py tests/test_account_record.py
+git diff -- README.md account_record.py account_output.py grok.py tests/test_account_record.py tests/test_account_output.py
 ```
 
 - [ ] **步骤 2：提交**
 
 ```bash
-git add README.md account_record.py grok.py tests/test_account_record.py \
+git add .gitignore README.md account_record.py account_output.py grok.py \
+  api_solver.py TurnstileSolver.bat \
+  tests/test_account_record.py tests/test_account_output.py \
   docs/superpowers/specs/2026-07-17-readme-import-workflow-design.md \
   docs/superpowers/plans/2026-07-17-readme-import-workflow.md
 git commit -m "docs: add end-to-end Sub2API import guide"
