@@ -1,3 +1,21 @@
-.worktrees/
+# 环境配置（包含私人信息）
+.env
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 项目特定
+keys/
+.worktrees/
+.ace-tool/
+.claude/
+.playwright-mcp/
