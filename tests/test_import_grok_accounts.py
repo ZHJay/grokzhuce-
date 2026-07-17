@@ -4,9 +4,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from import_flow import ImportItem, ImportSummary
-from import_grok_accounts import build_parser, print_progress, write_report
+from import_grok_accounts import build_parser, main, print_progress, write_report
+from local_admin_auth import AdminIdentity
 
 
 class ImporterCLITest(unittest.TestCase):
@@ -28,6 +30,24 @@ class ImporterCLITest(unittest.TestCase):
             print_progress(item, 1, 100)
 
         self.assertEqual(output.getvalue(), "[001/100] line=7 created account_id=501\n")
+
+    def test_main_normalizes_inactive_admin_value_error_without_traceback(self):
+        identity = AdminIdentity(
+            1, "admin@example.com", "hash", role="admin", status="inactive"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "accounts.txt"
+            source.write_text("a@example.com|secret|sso-token\n")
+            stderr = io.StringIO()
+            with mock.patch(
+                "import_grok_accounts.load_local_admin_material",
+                return_value=(identity, "jwt-secret"),
+            ), contextlib.redirect_stderr(stderr):
+                exit_code = main([str(source), "--dry-run"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("fatal: active admin identity is required", stderr.getvalue())
+        self.assertNotIn("Traceback", stderr.getvalue())
 
     def test_report_is_private_json_without_source_fields(self):
         summary = ImportSummary((ImportItem(1, "created", account_id=501),))

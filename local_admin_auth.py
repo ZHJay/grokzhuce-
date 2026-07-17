@@ -108,7 +108,8 @@ def load_local_admin_material(
 
     query = (
         "SELECT id,email,password_hash,role,status FROM users "
-        "WHERE role='admin' AND deleted_at IS NULL ORDER BY id LIMIT 1"
+        "WHERE role='admin' AND status='active' AND deleted_at IS NULL "
+        "ORDER BY id LIMIT 1"
     )
     row = run(
         [

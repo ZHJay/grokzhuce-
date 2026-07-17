@@ -92,6 +92,7 @@ class LocalAdminAuthTest(unittest.TestCase):
         self.assertTrue(all(isinstance(command, list) for command in commands))
         self.assertIn("psql", commands[-1])
         self.assertIn("WHERE role='admin'", commands[-1][-1])
+        self.assertIn("status='active'", commands[-1][-1])
 
     def test_load_local_admin_material_prefers_persisted_runtime_jwt_secret(self):
         def run(command):

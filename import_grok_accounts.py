@@ -100,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2 if summary.failed else 0
     except (
         OSError,
+        ValueError,
         RecordValidationError,
         RuntimeError,
         Sub2APIError,
