@@ -92,30 +92,21 @@ class ImportPostconditionsTest(unittest.TestCase):
                 self.assertEqual(summary.skipped, 0)
                 self.assertEqual(client.calls, 0)
 
-    def test_noncompliant_create_response_remains_failed_on_rerun(self):
+    def test_noncompliant_create_response_requires_manual_recovery(self):
         wrong = compliant_account(self.record, account_id=501)
         wrong["name"] = "wrong-name"
         existing = {}
 
-        first = run_import(
+        summary = run_import(
             [self.record],
             ProbeClient(wrong),
             group_id=3,
             existing_accounts=existing,
         )
-        second_client = ProbeClient()
-        second = run_import(
-            [self.record],
-            second_client,
-            group_id=3,
-            existing_accounts=existing,
-        )
 
-        self.assertEqual(first.failed, 1)
-        self.assertEqual(first.items[0].account_id, 501)
-        self.assertEqual(second.failed, 1)
-        self.assertEqual(second.skipped, 0)
-        self.assertEqual(second_client.calls, 0)
+        self.assertEqual(summary.failed, 1)
+        self.assertEqual(summary.items[0].account_id, 501)
+        self.assertEqual(existing, {})
 
 
 if __name__ == "__main__":

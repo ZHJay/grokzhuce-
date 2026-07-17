@@ -36,7 +36,7 @@ class ImporterCLITest(unittest.TestCase):
     def test_main_passes_refreshing_token_provider_to_client(self):
         fake_client = mock.Mock()
         fake_client.get_grok_group_id.return_value = 3
-        fake_client.list_existing_grok_accounts.return_value = {}
+        fake_client.list_existing_accounts.return_value = {}
         token_provider = object()
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "accounts.txt"

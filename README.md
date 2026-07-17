@@ -114,18 +114,17 @@ git pull --ff-only
 
 ### 3. 上传注册结果
 
-在运行注册程序的电脑执行，将文件名替换为实际值：
+在运行注册程序的电脑执行。数据通过 SSH 写入同目录 `0600` 随机临时文件，成功后原子替换最终文件：
 
 ```bash
-scp keys/grok_20260717_120000_100.txt \
-  user@server:~/grokzhuce/private/grok_accounts.txt
-```
-
-回到服务器设置私密权限：
-
-```bash
-cd ~/grokzhuce
-chmod 600 private/grok_accounts.txt
+ssh user@server '
+  set -eu; umask 077; cd ~/grokzhuce; mkdir -p private
+  tmp=$(mktemp private/.grok_accounts.XXXXXX)
+  trap "rm -f \"$tmp\"" EXIT
+  cat >"$tmp"; chmod 600 "$tmp"
+  mv -f "$tmp" private/grok_accounts.txt
+  trap - EXIT
+' < keys/grok_20260717_120000_100.txt
 ```
 
 ### 4. 先运行 dry-run
@@ -141,7 +140,7 @@ Dry-run 会在任何创建请求前完成：
 - 全量校验三字段格式、邮箱和 SSO 唯一性；
 - 获取当前有效的本地管理员材料；
 - 解析唯一的 Grok 分组；
-- 分页读取现有 Grok 账号快照；
+- 分页读取全部平台的现有账号快照；
 - 输出 `create_calls=0`，不会导入账号。
 
 ### 5. 正式严格串行导入
@@ -177,9 +176,9 @@ summary total=100 created=95 skipped=5 failed=0
 
 ### 7. 安全续跑
 
-中断或部分失败后，使用同一输入文件和同一 apply 命令重新运行。只有“唯一同名且完整满足名称、平台、OAuth 类型、Grok 分组、模型映射、并发、优先级、倍率和过期设置”的账号会被 `skipped`。
+只有 `failed=0` 的完成批次可直接重复运行。若失败项带 `account_id`，表示服务端已创建但后置条件不合规，必须先按 ID 修复或删除；若发生 timeout/disconnect 等结果未知错误，必须先在 Sub2API 核验实际状态，不能盲目重试。
 
-同名账号重复或任一后置条件不合规时，流程会标记 `failed`，不会静默跳过或创建第二个同名账号。
+重新执行时会读取全部平台的账号；只有唯一同名且完整满足名称、平台、OAuth 类型、Grok 分组、模型映射、并发、优先级、倍率和过期设置的账号会被 `skipped`，其他同名状态会 `failed`。
 
 ## 常见问题
 

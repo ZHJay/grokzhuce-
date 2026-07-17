@@ -18,6 +18,9 @@
 - 修改 `tests/test_account_record.py`：覆盖精确输出与歧义分隔符拒绝。
 - 创建 `tests/test_account_output.py`：覆盖输出内容和 `0600` 权限。
 - 修改 `api_solver.py`、`TurnstileSolver.bat`：默认及一键启动均绑定 loopback。
+- 修改 `sub2api_client.py`、`import_grok_accounts.py`：快照覆盖全部平台账号。
+- 修改 `import_flow.py`：非合规创建结果不写入伪造的内存快照。
+- 修改对应测试：覆盖跨平台同名账号和非合规创建的人工恢复契约。
 - 修改 `README.md`：新增端到端 import 主章节，并更新功能、结构和输出说明。
 - 修改 `.gitignore`：忽略 README 导入流程创建的 `private/` 和 `reports/`。
 
@@ -145,6 +148,8 @@ python3 -m unittest discover -s tests -v
 9. 幂等续跑；
 10. 常见错误和安全清单。
 
+上传命令必须使用远端 `umask 077`、同目录随机临时文件、`chmod 600` 和原子 `mv`；续跑说明必须区分 `failed=0`、带 `account_id` 的非合规创建及结果未知错误。
+
 - [ ] **步骤 3：核对 CLI**
 
 ```bash
@@ -179,7 +184,9 @@ git diff -- README.md account_record.py account_output.py grok.py tests/test_acc
 ```bash
 git add .gitignore README.md account_record.py account_output.py grok.py \
   api_solver.py TurnstileSolver.bat \
+  import_flow.py import_grok_accounts.py sub2api_client.py \
   tests/test_account_record.py tests/test_account_output.py \
+  tests/test_import_grok_accounts.py tests/test_import_postconditions.py tests/test_sub2api_client.py \
   docs/superpowers/specs/2026-07-17-readme-import-workflow-design.md \
   docs/superpowers/plans/2026-07-17-readme-import-workflow.md
 git commit -m "docs: add end-to-end Sub2API import guide"

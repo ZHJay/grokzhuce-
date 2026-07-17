@@ -44,7 +44,7 @@ class Sub2APIClientTest(unittest.TestCase):
                 with self.assertRaises(Sub2APIError):
                     client.get_grok_group_id()
 
-    def test_lists_existing_grok_accounts_with_postcondition_metadata(self):
+    def test_lists_all_existing_accounts_with_postcondition_metadata(self):
         transport = RecordingTransport([
             {
                 "items": [{
@@ -67,7 +67,7 @@ class Sub2APIClientTest(unittest.TestCase):
                 "items": [{
                     "id": 2,
                     "name": "same",
-                    "platform": "grok",
+                    "platform": "openai",
                     "type": "apikey",
                     "group_ids": [3],
                     "credentials": {"model_mapping": {"grok-3": "grok-3"}},
@@ -83,7 +83,7 @@ class Sub2APIClientTest(unittest.TestCase):
         ])
         client = Sub2APIClient("http://localhost/api/v1", "token", transport=transport)
 
-        accounts = client.list_existing_grok_accounts()
+        accounts = client.list_existing_accounts()
 
         self.assertEqual([item["id"] for item in accounts["same"]], [1, 2])
         self.assertEqual(accounts["same"][1]["type"], "apikey")
@@ -94,8 +94,10 @@ class Sub2APIClientTest(unittest.TestCase):
         self.assertEqual(accounts["same"][1]["concurrency"], 9)
         self.assertEqual(accounts["same"][1]["priority"], 2)
         self.assertEqual(accounts["same"][1]["rate_multiplier"], 1.5)
+        self.assertEqual(accounts["same"][1]["platform"], "openai")
         self.assertIn("page=1", transport.calls[0][1])
         self.assertIn("page=2", transport.calls[1][1])
+        self.assertNotIn("platform=", transport.calls[0][1])
 
     def test_rejects_invalid_pagination_metadata_before_create(self):
         cases = [
@@ -114,7 +116,7 @@ class Sub2APIClientTest(unittest.TestCase):
                 with self.assertRaisesRegex(
                     Sub2APIError, "pagination metadata is invalid"
                 ):
-                    client.list_existing_grok_accounts()
+                    client.list_existing_accounts()
 
     def test_create_payload_contains_exactly_one_sso_and_requested_settings(self):
         transport = RecordingTransport([{

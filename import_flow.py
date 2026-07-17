@@ -127,7 +127,6 @@ def run_import(
         else:
             try:
                 account = client.create_grok_from_sso(record, group_id=group_id)
-                existing_accounts.setdefault(record.account_name, []).append(account)
                 account_id = _account_id(account)
                 if not _is_compliant_account(
                     account,
@@ -141,6 +140,7 @@ def run_import(
                         error="created account does not satisfy requested settings",
                     )
                 else:
+                    existing_accounts.setdefault(record.account_name, []).append(account)
                     item = ImportItem(
                         record.line_number, "created", account_id=account_id
                     )

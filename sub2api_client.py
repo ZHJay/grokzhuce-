@@ -53,22 +53,22 @@ class Sub2APIClient:
             raise Sub2APIError("expected exactly one active Grok group")
         return matches[0]["id"]
 
-    def list_existing_grok_accounts(self) -> dict[str, list[dict[str, Any]]]:
+    def list_existing_accounts(self) -> dict[str, list[dict[str, Any]]]:
         accounts_by_name: dict[str, list[dict[str, Any]]] = {}
         page = 1
         while True:
             data = self._request(
-                "GET", f"/admin/accounts?page={page}&page_size=100&platform=grok"
+                "GET", f"/admin/accounts?page={page}&page_size=100"
             )
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
-                raise Sub2APIError("Grok account list response is invalid")
+                raise Sub2APIError("account list response is invalid")
             for account in data["items"]:
                 if not isinstance(account, dict):
-                    raise Sub2APIError("Grok account list item is invalid")
+                    raise Sub2APIError("account list item is invalid")
                 name = account.get("name")
                 account_id = account.get("id")
                 if not isinstance(name, str) or not isinstance(account_id, int):
-                    raise Sub2APIError("Grok account list item is invalid")
+                    raise Sub2APIError("account list item is invalid")
                 snapshot = {
                     "id": account_id,
                     "name": name,
@@ -92,7 +92,7 @@ class Sub2APIClient:
                 or pages < 1
                 or pages < page
             ):
-                raise Sub2APIError("Grok account pagination metadata is invalid")
+                raise Sub2APIError("account pagination metadata is invalid")
             if page == pages:
                 return accounts_by_name
             page += 1

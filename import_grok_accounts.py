@@ -86,12 +86,12 @@ def main(argv: list[str] | None = None) -> int:
         token_provider = LocalAdminTokenProvider()
         client = Sub2APIClient(args.base_url, token_provider)
         group_id = client.get_grok_group_id()
-        existing_accounts = client.list_existing_grok_accounts()
+        existing_accounts = client.list_existing_accounts()
         existing_count = sum(len(items) for items in existing_accounts.values())
         mode = "dry-run" if args.dry_run else "apply"
         print(
             f"validated={len(records)} group_id={group_id} "
-            f"existing_grok={existing_count} mode={mode}"
+            f"existing_accounts={existing_count} mode={mode}"
         )
         if args.dry_run:
             print("dry-run complete: create_calls=0")
