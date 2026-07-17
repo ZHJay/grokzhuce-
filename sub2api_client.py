@@ -137,7 +137,13 @@ class Sub2APIClient:
         if not isinstance(created, list) or not isinstance(failed, list):
             raise Sub2APIError("Grok SSO conversion returned invalid data")
         if len(created) != 1 or failed:
-            raise Sub2APIError("Grok SSO conversion failed")
+            reason = ""
+            if failed and isinstance(failed[0], dict):
+                error_text = str(failed[0].get("error", ""))
+                match = re.match(r"^([A-Z][A-Z0-9_]{1,79}):", error_text)
+                if match:
+                    reason = f" ({match.group(1)})"
+            raise Sub2APIError(f"Grok SSO conversion failed{reason}")
         account = created[0].get("account") if isinstance(created[0], dict) else None
         if not isinstance(account, dict) or not isinstance(account.get("id"), int):
             raise Sub2APIError("Grok SSO conversion omitted the created account")

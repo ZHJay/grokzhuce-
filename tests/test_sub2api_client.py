@@ -80,6 +80,24 @@ class Sub2APIClientTest(unittest.TestCase):
         self.assertFalse(payload["auto_pause_on_expired"])
         self.assertEqual(account["id"], 501)
 
+    def test_create_failure_keeps_only_safe_reason_code(self):
+        transport = RecordingTransport([{
+            "created": [],
+            "failed": [{
+                "error": "GROK_SSO_EXCHANGE_FAILED: upstream secret-value@example.com"
+            }],
+        }])
+        client = Sub2APIClient("http://localhost/api/v1", "token", transport=transport)
+        record = AccountRecord(1, "a@example.com", "secret", "sso-token")
+
+        with self.assertRaisesRegex(
+            Sub2APIError, r"Grok SSO conversion failed \(GROK_SSO_EXCHANGE_FAILED\)"
+        ) as raised:
+            client.create_grok_from_sso(record, group_id=3)
+
+        self.assertNotIn("upstream", str(raised.exception))
+        self.assertNotIn("secret-value", str(raised.exception))
+
     def test_create_failure_does_not_expose_upstream_error_body(self):
         transport = RecordingTransport([{
             "created": [],
