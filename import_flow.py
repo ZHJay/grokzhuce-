@@ -61,17 +61,25 @@ def _is_compliant_account(
     model_mapping = (
         credentials.get("model_mapping") if isinstance(credentials, dict) else None
     )
+    concurrency = account.get("concurrency")
+    priority = account.get("priority")
+    rate_multiplier = account.get("rate_multiplier")
     return (
-        account.get("name") == account_name
+        type(group_id) is int
+        and account.get("name") == account_name
         and account.get("platform") == "grok"
         and account.get("type") == "oauth"
         and isinstance(group_ids, list)
+        and all(type(value) is int for value in group_ids)
         and group_ids == [group_id]
         and isinstance(credentials, dict)
         and model_mapping in (None, {})
-        and account.get("concurrency") == 10
-        and account.get("priority") == 1
-        and account.get("rate_multiplier") == 1
+        and type(concurrency) is int
+        and concurrency == 10
+        and type(priority) is int
+        and priority == 1
+        and type(rate_multiplier) in (int, float)
+        and rate_multiplier == 1
         and account.get("expires_at") is None
         and account.get("auto_pause_on_expired") is False
     )
@@ -79,7 +87,7 @@ def _is_compliant_account(
 
 def _account_id(account: dict) -> int | None:
     value = account.get("id")
-    return value if isinstance(value, int) else None
+    return value if type(value) is int else None
 
 
 def run_import(

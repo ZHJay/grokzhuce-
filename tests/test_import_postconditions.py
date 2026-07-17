@@ -65,7 +65,9 @@ class ImportPostconditionsTest(unittest.TestCase):
             ),
             "concurrency": lambda item: item.update(concurrency=9),
             "priority": lambda item: item.update(priority=2),
+            "priority_bool": lambda item: item.update(priority=True),
             "rate_multiplier": lambda item: item.update(rate_multiplier=1.5),
+            "rate_multiplier_bool": lambda item: item.update(rate_multiplier=True),
             "expiry": lambda item: item.update(expires_at=1_800_000_000),
             "auto_pause": lambda item: item.update(auto_pause_on_expired=True),
         }
@@ -107,6 +109,19 @@ class ImportPostconditionsTest(unittest.TestCase):
         self.assertEqual(summary.failed, 1)
         self.assertEqual(summary.items[0].account_id, 501)
         self.assertEqual(existing, {})
+
+    def test_boolean_group_membership_does_not_equal_integer_group(self):
+        account = compliant_account(self.record, group_id=1)
+        account["group_ids"] = [True]
+
+        summary = run_import(
+            [self.record],
+            ProbeClient(),
+            group_id=1,
+            existing_accounts={self.record.account_name: [account]},
+        )
+
+        self.assertEqual(summary.failed, 1)
 
 
 if __name__ == "__main__":

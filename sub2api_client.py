@@ -49,7 +49,7 @@ class Sub2APIClient:
             and group.get("platform") == "grok"
             and group.get("status", "active") == "active"
         ]
-        if len(matches) != 1 or not isinstance(matches[0].get("id"), int):
+        if len(matches) != 1 or type(matches[0].get("id")) is not int:
             raise Sub2APIError("expected exactly one active Grok group")
         return matches[0]["id"]
 
@@ -67,7 +67,7 @@ class Sub2APIClient:
                     raise Sub2APIError("account list item is invalid")
                 name = account.get("name")
                 account_id = account.get("id")
-                if not isinstance(name, str) or not isinstance(account_id, int):
+                if not isinstance(name, str) or type(account_id) is not int:
                     raise Sub2APIError("account list item is invalid")
                 snapshot = {
                     "id": account_id,
@@ -128,6 +128,6 @@ class Sub2APIClient:
                     reason = f" ({match.group(1)})"
             raise Sub2APIError(f"Grok SSO conversion failed{reason}")
         account = created[0].get("account") if isinstance(created[0], dict) else None
-        if not isinstance(account, dict) or not isinstance(account.get("id"), int):
+        if not isinstance(account, dict) or type(account.get("id")) is not int:
             raise Sub2APIError("Grok SSO conversion omitted the created account")
         return account

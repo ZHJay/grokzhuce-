@@ -32,6 +32,7 @@
 - 输入文件、`.env`、报告、JWT、Cookie 和 SSH 凭据不得提交到 Git。
 - Solver 示例必须显式绑定 `127.0.0.1`，注册输出在 Unix 上强制为 `0600`。
 - Importer 通过 `lstat`、`O_NOFOLLOW`、`fstat` 和 mode 检查拒绝不安全输入。
+- JSON ID、group membership 和调度数字显式排除 boolean，防止 `True == 1` 绕过后置条件。
 - HTTP 默认只使用服务器 loopback；HTTPS 以外的远程 origin 会被拒绝。
 
 ## 验证
