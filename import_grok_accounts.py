@@ -12,7 +12,7 @@ from pathlib import Path
 
 from account_record import RecordValidationError, parse_account_records
 from import_flow import ImportItem, ImportSummary, run_import
-from local_admin_auth import build_admin_jwt, load_local_admin_material
+from local_admin_token import LocalAdminTokenProvider
 from sub2api_client import Sub2APIClient, Sub2APIError
 
 
@@ -70,9 +70,8 @@ def main(argv: list[str] | None = None) -> int:
         records = parse_account_records(
             args.input_file.read_text(encoding="utf-8").splitlines()
         )
-        identity, jwt_secret = load_local_admin_material()
-        admin_jwt = build_admin_jwt(identity, jwt_secret)
-        client = Sub2APIClient(args.base_url, admin_jwt)
+        token_provider = LocalAdminTokenProvider()
+        client = Sub2APIClient(args.base_url, token_provider)
         group_id = client.get_grok_group_id()
         existing_accounts = client.list_existing_grok_accounts()
         existing_count = sum(len(items) for items in existing_accounts.values())

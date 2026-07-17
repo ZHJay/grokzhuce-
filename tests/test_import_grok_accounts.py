@@ -8,7 +8,6 @@ from unittest import mock
 
 from import_flow import ImportItem, ImportSummary
 from import_grok_accounts import build_parser, main, print_progress, write_report
-from local_admin_auth import AdminIdentity
 
 
 class ImporterCLITest(unittest.TestCase):
@@ -31,17 +30,33 @@ class ImporterCLITest(unittest.TestCase):
 
         self.assertEqual(output.getvalue(), "[001/100] line=7 created account_id=501\n")
 
-    def test_main_normalizes_inactive_admin_value_error_without_traceback(self):
-        identity = AdminIdentity(
-            1, "admin@example.com", "hash", role="admin", status="inactive"
-        )
+    def test_main_passes_refreshing_token_provider_to_client(self):
+        fake_client = mock.Mock()
+        fake_client.get_grok_group_id.return_value = 3
+        fake_client.list_existing_grok_accounts.return_value = {}
+        token_provider = object()
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "accounts.txt"
+            source.write_text("a@example.com|secret|sso-token\n")
+            with mock.patch(
+                "import_grok_accounts.LocalAdminTokenProvider",
+                return_value=token_provider,
+            ), mock.patch(
+                "import_grok_accounts.Sub2APIClient", return_value=fake_client
+            ) as client_class:
+                exit_code = main([str(source), "--dry-run"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIs(client_class.call_args.args[1], token_provider)
+
+    def test_main_normalizes_token_provider_value_error_without_traceback(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "accounts.txt"
             source.write_text("a@example.com|secret|sso-token\n")
             stderr = io.StringIO()
             with mock.patch(
-                "import_grok_accounts.load_local_admin_material",
-                return_value=(identity, "jwt-secret"),
+                "import_grok_accounts.LocalAdminTokenProvider",
+                side_effect=ValueError("active admin identity is required"),
             ), contextlib.redirect_stderr(stderr):
                 exit_code = main([str(source), "--dry-run"])
 
