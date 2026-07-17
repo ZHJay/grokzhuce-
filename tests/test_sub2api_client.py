@@ -44,16 +44,41 @@ class Sub2APIClientTest(unittest.TestCase):
                 with self.assertRaises(Sub2APIError):
                     client.get_grok_group_id()
 
-    def test_lists_existing_grok_names_across_all_pages(self):
+    def test_lists_existing_grok_accounts_with_postcondition_metadata(self):
         transport = RecordingTransport([
-            {"items": [{"name": "one"}], "page": 1, "pages": 2},
-            {"items": [{"name": "two"}], "page": 2, "pages": 2},
+            {
+                "items": [{
+                    "id": 1,
+                    "name": "same",
+                    "platform": "grok",
+                    "type": "oauth",
+                    "group_ids": [3],
+                    "expires_at": None,
+                    "auto_pause_on_expired": False,
+                }],
+                "page": 1,
+                "pages": 2,
+            },
+            {
+                "items": [{
+                    "id": 2,
+                    "name": "same",
+                    "platform": "grok",
+                    "type": "apikey",
+                    "group_ids": [3],
+                    "expires_at": None,
+                    "auto_pause_on_expired": False,
+                }],
+                "page": 2,
+                "pages": 2,
+            },
         ])
         client = Sub2APIClient("http://localhost/api/v1", "token", transport=transport)
 
-        names = client.list_existing_grok_names()
+        accounts = client.list_existing_grok_accounts()
 
-        self.assertEqual(names, {"one", "two"})
+        self.assertEqual([item["id"] for item in accounts["same"]], [1, 2])
+        self.assertEqual(accounts["same"][1]["type"], "apikey")
         self.assertIn("page=1", transport.calls[0][1])
         self.assertIn("page=2", transport.calls[1][1])
 

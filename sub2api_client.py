@@ -52,8 +52,8 @@ class Sub2APIClient:
             raise Sub2APIError("expected exactly one active Grok group")
         return matches[0]["id"]
 
-    def list_existing_grok_names(self) -> set[str]:
-        names: set[str] = set()
+    def list_existing_grok_accounts(self) -> dict[str, list[dict[str, Any]]]:
+        accounts_by_name: dict[str, list[dict[str, Any]]] = {}
         page = 1
         while True:
             data = self._request(
@@ -62,11 +62,25 @@ class Sub2APIClient:
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
                 raise Sub2APIError("Grok account list response is invalid")
             for account in data["items"]:
-                if isinstance(account, dict) and isinstance(account.get("name"), str):
-                    names.add(account["name"])
+                if not isinstance(account, dict):
+                    raise Sub2APIError("Grok account list item is invalid")
+                name = account.get("name")
+                account_id = account.get("id")
+                if not isinstance(name, str) or not isinstance(account_id, int):
+                    raise Sub2APIError("Grok account list item is invalid")
+                snapshot = {
+                    "id": account_id,
+                    "name": name,
+                    "platform": account.get("platform"),
+                    "type": account.get("type"),
+                    "group_ids": account.get("group_ids"),
+                    "expires_at": account.get("expires_at"),
+                    "auto_pause_on_expired": account.get("auto_pause_on_expired"),
+                }
+                accounts_by_name.setdefault(name, []).append(snapshot)
             pages = data.get("pages", 1)
             if not isinstance(pages, int) or page >= pages:
-                return names
+                return accounts_by_name
             page += 1
 
     def create_grok_from_sso(

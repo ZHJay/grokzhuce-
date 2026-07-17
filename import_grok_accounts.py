@@ -74,11 +74,12 @@ def main(argv: list[str] | None = None) -> int:
         admin_jwt = build_admin_jwt(identity, jwt_secret)
         client = Sub2APIClient(args.base_url, admin_jwt)
         group_id = client.get_grok_group_id()
-        existing_names = client.list_existing_grok_names()
+        existing_accounts = client.list_existing_grok_accounts()
+        existing_count = sum(len(items) for items in existing_accounts.values())
         mode = "dry-run" if args.dry_run else "apply"
         print(
             f"validated={len(records)} group_id={group_id} "
-            f"existing_grok={len(existing_names)} mode={mode}"
+            f"existing_grok={existing_count} mode={mode}"
         )
         if args.dry_run:
             print("dry-run complete: create_calls=0")
@@ -88,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             records,
             client,
             group_id=group_id,
-            existing_names=existing_names,
+            existing_accounts=existing_accounts,
             on_progress=print_progress,
         )
         if args.report is not None:

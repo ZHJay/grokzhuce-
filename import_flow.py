@@ -53,35 +53,72 @@ class ImportSummary:
 ProgressCallback = Callable[[ImportItem, int, int], None]
 
 
+def _is_compliant_account(account: dict, *, group_id: int) -> bool:
+    group_ids = account.get("group_ids")
+    return (
+        account.get("platform") == "grok"
+        and account.get("type") == "oauth"
+        and isinstance(group_ids, list)
+        and group_ids == [group_id]
+        and account.get("expires_at") is None
+        and account.get("auto_pause_on_expired") is False
+    )
+
+
+def _account_id(account: dict) -> int | None:
+    value = account.get("id")
+    return value if isinstance(value, int) else None
+
+
 def run_import(
     records: Sequence[AccountRecord],
     client: GrokAccountCreator,
     *,
     group_id: int,
-    existing_names: set[str],
+    existing_accounts: dict[str, list[dict]],
     on_progress: ProgressCallback | None = None,
 ) -> ImportSummary:
-    """Import with a synchronous loop; no next request starts before return.
+    """Import serially and skip only a unique, fully compliant existing account.
 
     Timeout failures are intentionally not retried. A lost response could hide a
-    successful upstream create, so a later full rerun must re-check server names.
+    successful upstream create, so a later full rerun must re-read server state.
     """
     items: list[ImportItem] = []
     total = len(records)
     for record in records:
-        if record.account_name in existing_names:
-            item = ImportItem(record.line_number, "skipped")
+        matches = existing_accounts.get(record.account_name, [])
+        if len(matches) > 1:
+            item = ImportItem(
+                record.line_number,
+                "failed",
+                error="multiple existing accounts share requested name",
+            )
+        elif len(matches) == 1:
+            account = matches[0]
+            if _is_compliant_account(account, group_id=group_id):
+                item = ImportItem(
+                    record.line_number,
+                    "skipped",
+                    account_id=_account_id(account),
+                )
+            else:
+                item = ImportItem(
+                    record.line_number,
+                    "failed",
+                    account_id=_account_id(account),
+                    error="existing account does not satisfy requested settings",
+                )
         else:
             try:
                 account = client.create_grok_from_sso(record, group_id=group_id)
-                account_id = account.get("id")
-                existing_names.add(record.account_name)
-                if account.get("expires_at") is not None:
+                existing_accounts.setdefault(record.account_name, []).append(account)
+                account_id = _account_id(account)
+                if not _is_compliant_account(account, group_id=group_id):
                     item = ImportItem(
                         record.line_number,
                         "failed",
                         account_id=account_id,
-                        error="created account has an expiry",
+                        error="created account does not satisfy requested settings",
                     )
                 else:
                     item = ImportItem(
