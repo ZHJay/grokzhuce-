@@ -53,6 +53,7 @@ class Sub2APIClientTest(unittest.TestCase):
                     "platform": "grok",
                     "type": "oauth",
                     "group_ids": [3],
+                    "credentials": {},
                     "expires_at": None,
                     "auto_pause_on_expired": False,
                 }],
@@ -66,6 +67,7 @@ class Sub2APIClientTest(unittest.TestCase):
                     "platform": "grok",
                     "type": "apikey",
                     "group_ids": [3],
+                    "credentials": {"model_mapping": {"grok-3": "grok-3"}},
                     "expires_at": None,
                     "auto_pause_on_expired": False,
                 }],
@@ -79,6 +81,10 @@ class Sub2APIClientTest(unittest.TestCase):
 
         self.assertEqual([item["id"] for item in accounts["same"]], [1, 2])
         self.assertEqual(accounts["same"][1]["type"], "apikey")
+        self.assertEqual(
+            accounts["same"][1]["credentials"]["model_mapping"],
+            {"grok-3": "grok-3"},
+        )
         self.assertIn("page=1", transport.calls[0][1])
         self.assertIn("page=2", transport.calls[1][1])
 

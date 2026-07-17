@@ -55,11 +55,17 @@ ProgressCallback = Callable[[ImportItem, int, int], None]
 
 def _is_compliant_account(account: dict, *, group_id: int) -> bool:
     group_ids = account.get("group_ids")
+    credentials = account.get("credentials")
+    model_mapping = (
+        credentials.get("model_mapping") if isinstance(credentials, dict) else None
+    )
     return (
         account.get("platform") == "grok"
         and account.get("type") == "oauth"
         and isinstance(group_ids, list)
         and group_ids == [group_id]
+        and isinstance(credentials, dict)
+        and model_mapping in (None, {})
         and account.get("expires_at") is None
         and account.get("auto_pause_on_expired") is False
     )

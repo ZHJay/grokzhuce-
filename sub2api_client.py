@@ -74,6 +74,7 @@ class Sub2APIClient:
                     "platform": account.get("platform"),
                     "type": account.get("type"),
                     "group_ids": account.get("group_ids"),
+                    "credentials": account.get("credentials"),
                     "expires_at": account.get("expires_at"),
                     "auto_pause_on_expired": account.get("auto_pause_on_expired"),
                 }

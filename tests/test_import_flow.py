@@ -23,6 +23,7 @@ class SequentialProbeClient:
             "platform": "grok",
             "type": "oauth",
             "group_ids": [group_id],
+            "credentials": {},
             "expires_at": None,
             "auto_pause_on_expired": False,
         }
@@ -42,6 +43,7 @@ class ImportFlowTest(unittest.TestCase):
             "platform": "grok",
             "type": "oauth",
             "group_ids": [group_id],
+            "credentials": {},
             "expires_at": None,
             "auto_pause_on_expired": False,
         }
@@ -66,8 +68,11 @@ class ImportFlowTest(unittest.TestCase):
     def test_noncompliant_or_duplicate_existing_account_is_failed_not_skipped(self):
         expired = self.compliant_account(self.records[0])
         expired["expires_at"] = 1_800_000_000
+        restricted = self.compliant_account(self.records[0])
+        restricted["credentials"] = {"model_mapping": {"grok-3": "grok-3"}}
         cases = [
             [expired],
+            [restricted],
             [
                 self.compliant_account(self.records[0], account_id=99),
                 self.compliant_account(self.records[0], account_id=100),
@@ -157,6 +162,7 @@ class ImportFlowTest(unittest.TestCase):
                     "platform": "grok",
                     "type": "oauth",
                     "group_ids": [group_id],
+                    "credentials": {},
                     "expires_at": 1_800_000_000,
                     "auto_pause_on_expired": True,
                 }
