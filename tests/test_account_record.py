@@ -1,9 +1,30 @@
 import unittest
 
-from account_record import RecordValidationError, parse_account_records
+from account_record import (
+    RecordValidationError,
+    format_account_record,
+    parse_account_records,
+)
 
 
 class ParseAccountRecordsTest(unittest.TestCase):
+    def test_formats_registration_output_for_importer(self):
+        line = format_account_record(
+            "user@example.com", "password123", "sso-token"
+        )
+
+        self.assertEqual(
+            line, "user@example.com|password123|sso-token"
+        )
+
+    def test_rejects_ambiguous_registration_output(self):
+        with self.assertRaisesRegex(
+            RecordValidationError, "round-trip safely"
+        ):
+            format_account_record(
+                "user@example.com", "pass|word", "sso-token"
+            )
+
     def test_parses_three_fields_and_preserves_requested_name(self):
         records = parse_account_records(["a@example.com|secret|sso-token"])
 

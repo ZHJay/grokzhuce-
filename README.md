@@ -1,138 +1,200 @@
-# Grok 批量注册工具
+# Grok 批量注册与 Sub2API 导入工具
 
-批量注册 Grok 账号并自动开启 NSFW 功能。
+本项目包含两条完整流程：
+
+1. 批量注册 Grok 账号，并自动开启 NSFW / Unhinged 模式；
+2. 将注册结果通过 Sub2API 管理 API **严格串行**导入为 Grok OAuth 账号。
+
+> [!IMPORTANT]
+> 注册结果包含邮箱、明文密码和 SSO Cookie。请将 `keys/`、`private/`、`reports/` 和 `.env` 视为敏感数据，禁止提交到 Git 或发送到不受信任的主机。
 
 ## 功能
 
-- 自动创建临时邮箱并获取验证码
-- 自动完成注册流程
+- 自动创建临时邮箱、获取验证码并完成 Grok 注册
 - 自动开启 NSFW / Unhinged 模式
-- 注册完成后自动清理临时邮箱
-- 支持多线程并发注册
 - 支持本地 Turnstile Solver 或 YesCaptcha
+- 输出可直接交给 importer 的 `email|password|sso` 文件
+- 通过 Sub2API 管理 API 严格串行导入，一次只转换和创建一个账号
+- 导入前支持 dry-run；长批次自动刷新短期管理员 JWT
+- 按完整后置条件幂等续跑，并生成不含账号凭据的私密 JSON 报告
 
-## 项目结构
+## 一、注册 Grok 账号
 
-```
-.
-├── grok.py                    # 主程序，批量注册入口
-├── api_solver.py              # 本地 Turnstile 验证码解决器
-├── browser_configs.py         # 浏览器指纹配置
-├── db_results.py              # 验证结果存储
-├── TurnstileSolver.bat        # Windows 下一键启动 Solver
-├── .env.example               # 环境变量模板
-├── requirements.txt           # Python 依赖
-└── g/
-    ├── email_service.py       # 临时邮箱服务（cloudflare_temp_email）
-    ├── turnstile_service.py   # Turnstile 验证服务
-    ├── user_agreement_service.py
-    └── nsfw_service.py        # NSFW 设置服务
-```
-
-## 依赖
-
-- [cloudflare_temp_email](https://github.com/dreamhunter2333/cloudflare_temp_email) — 临时邮箱服务，通过环境变量配置接入地址
-- 本地 Turnstile Solver（内置 `api_solver.py`）或 [YesCaptcha](https://yescaptcha.com/)
-
-## 安装
+### 1. 安装依赖
 
 ```bash
-pip install -r requirements.txt
-```
-
-## 配置
-
-复制环境变量模板并填写：
-
-```bash
+python3 -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-### 环境变量
+在 `.env` 中填写必需的 `MAIL_BASE_URL`、`MAIL_ADMIN_PASSWORD`、`MAIL_DOMAIN`；按需填写 `MAIL_SITE_PASSWORD` 和 `YESCAPTCHA_KEY`。兼容别名见 `.env.example`。
 
-| 配置项 | 必填 | 说明 |
-|--------|------|------|
-| `MAIL_BASE_URL` | 是 | 临时邮箱服务地址，例如 `https://mail.example.com` |
-| `MAIL_ADMIN_PASSWORD` | 是 | Admin 密码（对应 worker 的 `ADMIN_PASSWORDS`，请求头 `x-admin-auth`） |
-| `MAIL_DOMAIN` | 是 | 邮箱域名，例如 `example.com` |
-| `MAIL_SITE_PASSWORD` | 否 | 站点密码（启用 `x-custom-auth` 时填写） |
-| `YESCAPTCHA_KEY` | 否 | YesCaptcha API Key；不填则使用本地 Solver（`http://127.0.0.1:5072`） |
+### 2. 启动 Turnstile Solver
 
-兼容别名（可选）：
-
-| 别名 | 等价于 |
-|------|--------|
-| `WORKER_DOMAIN` | `MAIL_BASE_URL` |
-| `ADMIN_PASSWORD` / `FREEMAIL_TOKEN` | `MAIL_ADMIN_PASSWORD` |
-
-`.env` 示例：
-
-```env
-MAIL_BASE_URL=https://mail.example.com
-MAIL_ADMIN_PASSWORD=your-admin-password
-MAIL_DOMAIN=example.com
-MAIL_SITE_PASSWORD=
-YESCAPTCHA_KEY=
-```
-
-> `.env` 含敏感信息，已加入 `.gitignore`，请勿提交到仓库。
-
-## 使用
-
-### 1. 启动 Turnstile Solver（未配置 YesCaptcha 时）
-
-Windows 可双击 `TurnstileSolver.bat`，或手动执行：
+未配置 `YESCAPTCHA_KEY` 时执行：
 
 ```bash
-python api_solver.py --browser_type camoufox --thread 5 --debug
+python3 api_solver.py --browser_type camoufox --thread 5 --debug
 ```
 
-等待 Solver 就绪（默认监听 `http://127.0.0.1:5072`）。
+默认监听 `http://127.0.0.1:5072`。Windows 也可双击 `TurnstileSolver.bat`。
 
-若已配置 `YESCAPTCHA_KEY`，可跳过本步骤。
-
-### 2. 运行注册程序
+### 3. 运行注册程序
 
 新开一个终端：
 
 ```bash
-python grok.py
+python3 grok.py
 ```
 
-按提示输入：
-
-- 并发数（默认 `8`）
-- 注册数量（默认 `100`）
-
-### 3. 输出
-
-成功注册的 SSO Token 保存在：
+按提示输入并发数和注册数量。成功记录写入：
 
 ```text
 keys/grok_<时间戳>_<数量>.txt
 ```
 
-## 输出示例
+文件中每行严格为：
 
 ```text
-============================================================
-Grok 注册机
-============================================================
-[*] 正在初始化...
-[+] 注册页可访问 (impersonate=chrome136)
-[+] Action ID: 7f67aa61adfb0655899002808e1d443935b057c25b
-
-并发数 (默认8): 8
-注册数量 (默认100): 10
-[*] 启动 8 个线程，目标 10 个
-[*] 输出: keys/grok_20260714_190000_10.txt
-[*] 开始注册: abc123@example.com
-[✓] 注册成功: 1/10 | abc123@example.com | SSO: sso_xxx... | 平均: 5.2s | NSFW: ok
-...
+email|password|sso
 ```
 
-## 注意事项
+不要手工改变字段顺序，也不要在 SSO 中加入逗号或换行。
 
-1. 必须先配置可用的 cloudflare_temp_email 服务，并在 `.env` 中填写 `MAIL_BASE_URL`、`MAIL_DOMAIN`、`MAIL_ADMIN_PASSWORD`
-2. 未配置 `YESCAPTCHA_KEY` 时，运行前必须先启动本地 Turnstile Solver
-3. 仅供学习研究使用
+## 二、导入到 Sub2API（重点）
+
+### 导入结果
+
+每条输入会创建一个满足以下设置的账号：
+
+| 字段 | 值 |
+|---|---|
+| 账号名称 | `email|password` |
+| 平台 / 类型 | `grok` / `oauth` |
+| 分组 | 名称为 `Grok`、平台为 `grok` 的唯一启用分组 |
+| 并发 / 优先级 /倍率 | `10` / `1` / `1` |
+| 过期时间 | 不设置；关闭过期自动暂停 |
+| 模型映射 | 不设置额外映射 |
+
+> [!WARNING]
+> 按当前导入契约，**明文密码会出现在 Sub2API 账号名称及数据库中**。若这不符合你的安全要求，请先修改 `AccountRecord.account_name` 和对应测试，再导入。
+
+### 1. 确认服务器前置条件
+
+Importer 应在 Sub2API 所在服务器运行，并要求：
+
+- Python 3；importer 本身只使用标准库；
+- Docker daemon 正在运行，当前用户可以执行 `sudo docker`；
+- Sub2API 容器名为 `sub2api`；PostgreSQL 容器名为 `sub2api-postgres`；
+- Sub2API API 默认监听 `http://127.0.0.1:8080/api/v1`；
+- 数据库内至少存在一个 active admin；
+- 存在唯一的 active `Grok` / `grok` 分组。
+
+在服务器检查：
+
+```bash
+python3 --version
+sudo docker ps --format '{{.Names}}'
+```
+
+### 2. 在服务器获取代码
+
+```bash
+git clone https://github.com/ZHJay/grokzhuce-.git ~/grokzhuce
+cd ~/grokzhuce
+mkdir -p private reports
+```
+
+如果已经 clone：
+
+```bash
+cd ~/grokzhuce
+git pull --ff-only
+```
+
+### 3. 上传注册结果
+
+在运行注册程序的电脑执行，将文件名替换为实际值：
+
+```bash
+scp keys/grok_20260717_120000_100.txt \
+  user@server:~/grokzhuce/private/grok_accounts.txt
+```
+
+回到服务器设置私密权限：
+
+```bash
+cd ~/grokzhuce
+chmod 600 private/grok_accounts.txt
+```
+
+### 4. 先运行 dry-run
+
+```bash
+python3 import_grok_accounts.py \
+  private/grok_accounts.txt \
+  --dry-run
+```
+
+Dry-run 会在任何创建请求前完成：
+
+- 全量校验三字段格式、邮箱和 SSO 唯一性；
+- 获取当前有效的本地管理员材料；
+- 解析唯一的 Grok 分组；
+- 分页读取现有 Grok 账号快照；
+- 输出 `create_calls=0`，不会导入账号。
+
+### 5. 正式严格串行导入
+
+确认 dry-run 成功后执行：
+
+```bash
+python3 import_grok_accounts.py \
+  private/grok_accounts.txt \
+  --apply \
+  --report "reports/import-$(date +%Y%m%d-%H%M%S).json"
+```
+
+流程始终按“转换一条 SSO → 创建一条账号 → 完成后处理下一条”执行，不使用并发。单条失败会记录为 `failed` 并继续下一条；前置条件失败则在任何创建前终止。
+
+进度和汇总示例：
+
+```text
+[001/100] line=1 created account_id=501
+[002/100] line=2 skipped account_id=502
+summary total=100 created=95 skipped=5 failed=0
+```
+
+### 6. 查看退出码和报告
+
+| 退出码 | 含义 |
+|---:|---|
+| `0` | dry-run 成功，或 apply 没有失败项 |
+| `1` | 输入、认证、Docker、HTTP 或其他前置条件失败 |
+| `2` | apply 完成，但至少一个账号导入失败 |
+
+报告文件默认权限为 `600`，只包含行号、状态、账号 ID 和脱敏错误，不包含邮箱、密码、SSO 或 JWT。
+
+### 7. 安全续跑
+
+中断或部分失败后，使用同一输入文件和同一 apply 命令重新运行。只有“唯一同名且完整满足名称、平台、OAuth 类型、Grok 分组、模型映射、并发、优先级、倍率和过期设置”的账号会被 `skipped`。
+
+同名账号重复或任一后置条件不合规时，流程会标记 `failed`，不会静默跳过或创建第二个同名账号。
+
+## 常见问题
+
+- `docker inspect ... non-zero exit status`：确认 Docker daemon、sudo 权限和两个容器名。
+- `expected one active admin database row`：确认数据库存在 active admin，且没有误连其他部署。
+- `expected exactly one active Grok group`：在 Sub2API 中保留唯一的 active `Grok` / `grok` 分组。
+- `pagination metadata is invalid`：服务端账号列表响应与当前 importer 契约不兼容，先确认 Sub2API 版本和代理响应。
+- `Grok SSO conversion failed`：检查对应 SSO 是否仍有效；报告不会保存上游敏感正文。
+- 自定义 API 地址：使用 `--base-url URL`。明文 HTTP 只允许 loopback；远程地址必须使用 HTTPS。
+- 查看全部参数：`python3 import_grok_accounts.py --help`。
+
+## 安全清单
+
+1. 不要提交 `.env`、`keys/`、`private/`、`reports/`、SSH 私钥或数据库凭据。
+2. 不要把真实账号内容粘贴到 Issue、日志或聊天中。
+3. 输入和报告文件保持 `600` 权限，用完后按你的保留策略安全处理。
+4. Importer 使用服务器本地短期管理员 JWT，只保存在内存中，并会在长批次中提前刷新。
+5. 凭据请求禁用环境代理和自动重定向，避免 Authorization 或 SSO 泄漏到其他 origin。

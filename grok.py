@@ -5,6 +5,7 @@ from urllib.parse import urljoin, urlparse
 from curl_cffi import requests
 from bs4 import BeautifulSoup
 
+from account_record import format_account_record
 from g import EmailService, TurnstileService, UserAgreementService, NsfwSettingsService
 
 # 基础配置
@@ -262,7 +263,15 @@ def register_single_thread():
                                     current_email = None
                                     break
                                 try:
-                                    with open(output_file, "a") as f: f.write(sso + "\n")
+                                    if output_file is None:
+                                        raise RuntimeError("output file is not initialized")
+                                    record_line = format_account_record(
+                                        email, password, sso
+                                    )
+                                    with open(
+                                        output_file, "a", encoding="utf-8"
+                                    ) as output:
+                                        output.write(record_line + "\n")
                                 except Exception as write_err:
                                     print(f"[-] 写入文件失败: {write_err}")
                                     email_service.delete_email(email)
