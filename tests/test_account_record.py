@@ -29,6 +29,14 @@ class ParseAccountRecordsTest(unittest.TestCase):
                 with self.assertRaises(RecordValidationError):
                     parse_account_records(lines)
 
+    def test_rejects_sso_delimiters_expanded_by_server(self):
+        for sso in ("sso,second", "sso\rsecond", "sso\nsecond"):
+            with self.subTest(sso=repr(sso)):
+                with self.assertRaisesRegex(
+                    RecordValidationError, "server-side delimiter"
+                ):
+                    parse_account_records([f"a@example.com|secret|{sso}"])
+
     def test_rejects_duplicate_email_case_insensitively(self):
         with self.assertRaisesRegex(RecordValidationError, "duplicate email"):
             parse_account_records([

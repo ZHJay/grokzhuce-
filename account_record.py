@@ -48,6 +48,12 @@ def parse_account_records(lines: Iterable[str]) -> list[AccountRecord]:
         email, password, sso = parts
         if "@" not in email or any(char.isspace() for char in email):
             raise RecordValidationError(f"line {line_number}: invalid email")
+        # Sub2API v0.1.156 expands these inside one list item before starting
+        # workers, which would violate the one-record/one-create invariant.
+        if any(delimiter in sso for delimiter in (",", "\r", "\n")):
+            raise RecordValidationError(
+                f"line {line_number}: SSO contains a server-side delimiter"
+            )
 
         email_key = email.casefold()
         if email_key in email_lines:
