@@ -93,7 +93,13 @@ class SecureJSONTransport:
     def _safe_http_reason(cls, exc: urllib.error.HTTPError) -> str:
         try:
             envelope = json.loads(cls._read_bounded(exc).decode("utf-8"))
-        except (Sub2APIError, json.JSONDecodeError, OSError, UnicodeError):
+        except (
+            Sub2APIError,
+            json.JSONDecodeError,
+            OSError,
+            UnicodeError,
+            http.client.HTTPException,
+        ):
             return "UNKNOWN"
         if not isinstance(envelope, dict):
             return "UNKNOWN"

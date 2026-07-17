@@ -1,7 +1,9 @@
+import http.client
 import json
 import os
 import threading
 import unittest
+import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 
@@ -166,6 +168,31 @@ class SecureJSONTransportTest(unittest.TestCase):
         self.assertEqual(
             str(caught.exception), "Sub2API request transport failed"
         )
+        self.assertNotIn("upstream-secret-detail", str(caught.exception))
+
+    def test_http_error_body_http_exception_is_safely_normalized(self):
+        body = mock.Mock()
+        body.read.side_effect = http.client.HTTPException(
+            "upstream-secret-detail"
+        )
+        opener = mock.Mock()
+        opener.open.side_effect = urllib.error.HTTPError(
+            "http://127.0.0.1:8080/api/v1/admin/groups/all",
+            500,
+            "server error",
+            mock.Mock(),
+            body,
+        )
+        transport = SecureJSONTransport(
+            "http://127.0.0.1:8080/api/v1",
+            lambda: "admin-jwt",
+            opener=opener,
+        )
+
+        with self.assertRaises(Sub2APIError) as caught:
+            transport("GET", "/admin/groups/all", None, 2)
+
+        self.assertEqual(str(caught.exception), "HTTP 500 (UNKNOWN)")
         self.assertNotIn("upstream-secret-detail", str(caught.exception))
 
 
