@@ -76,7 +76,10 @@ class SecureJSONTransport:
     ) -> None:
         self.base_url = validate_base_url(base_url)
         self._token_provider = token_provider
-        self._opener = opener or urllib.request.build_opener(_NoRedirectHandler())
+        self._opener = opener or urllib.request.build_opener(
+            urllib.request.ProxyHandler({}),
+            _NoRedirectHandler(),
+        )
 
     @staticmethod
     def _read_bounded(stream) -> bytes:

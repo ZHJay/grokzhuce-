@@ -19,6 +19,7 @@ class AdminIdentity:
     password_hash: str = field(repr=False)
     role: str = "admin"
     status: str = "active"
+    token_version: int = 0
 
 
 def resolve_token_version(
@@ -107,7 +108,7 @@ def load_local_admin_material(
         raise RuntimeError("Sub2API runtime JWT secret is missing")
 
     query = (
-        "SELECT id,email,password_hash,role,status FROM users "
+        "SELECT id,email,password_hash,role,status,token_version FROM users "
         "WHERE role='admin' AND status='active' AND deleted_at IS NULL "
         "ORDER BY id LIMIT 1"
     )
@@ -131,9 +132,16 @@ def load_local_admin_material(
         ]
     ).strip()
     fields = row.split("\t")
-    if len(fields) != 5:
+    if len(fields) != 6:
         raise RuntimeError("expected one active admin database row")
-    identity = AdminIdentity(int(fields[0]), fields[1], fields[2], fields[3], fields[4])
+    identity = AdminIdentity(
+        int(fields[0]),
+        fields[1],
+        fields[2],
+        fields[3],
+        fields[4],
+        int(fields[5]),
+    )
     return identity, jwt_secret
 
 
@@ -160,7 +168,9 @@ def build_admin_jwt(
         "email": identity.email,
         "role": identity.role,
         "token_version": resolve_token_version(
-            identity.email, identity.password_hash
+            identity.email,
+            identity.password_hash,
+            identity.token_version,
         ),
         "iat": issued_at,
         "nbf": issued_at,

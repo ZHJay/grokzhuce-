@@ -45,6 +45,7 @@ class LocalAdminAuthTest(unittest.TestCase):
             password_hash="hash",
             role="admin",
             status="active",
+            token_version=7,
         )
 
         token = build_admin_jwt(identity, "test-secret", now=1_700_000_000)
@@ -55,6 +56,10 @@ class LocalAdminAuthTest(unittest.TestCase):
         self.assertEqual(payload["user_id"], 1)
         self.assertEqual(payload["email"], "admin@example.com")
         self.assertEqual(payload["role"], "admin")
+        self.assertEqual(
+            payload["token_version"],
+            resolve_token_version("admin@example.com", "hash", 7),
+        )
         self.assertEqual(payload["iat"], 1_700_000_000)
         self.assertEqual(payload["nbf"], 1_700_000_000)
         self.assertEqual(payload["exp"], 1_700_000_900)
@@ -82,7 +87,7 @@ class LocalAdminAuthTest(unittest.TestCase):
                 return '["JWT_SECRET=jwt-secret"]'
             if command[2] == "inspect" and command[3] == "sub2api-postgres":
                 return '["POSTGRES_USER=dbuser","POSTGRES_DB=dbname"]'
-            return "1\tadmin@example.com\thash\tadmin\tactive\n"
+            return "1\tadmin@example.com\thash\tadmin\tactive\t0\n"
 
         identity, secret = load_local_admin_material(run=run)
 
@@ -102,11 +107,31 @@ class LocalAdminAuthTest(unittest.TestCase):
                 return '["POSTGRES_USER=dbuser","POSTGRES_DB=dbname"]'
             if "security_secrets" in command[-1]:
                 return "persisted-runtime-secret\n"
-            return "1\tadmin@example.com\thash\tadmin\tactive\n"
+            return "1\tadmin@example.com\thash\tadmin\tactive\t0\n"
 
         _, secret = load_local_admin_material(run=run)
 
         self.assertEqual(secret, "persisted-runtime-secret")
+
+    def test_load_local_admin_material_preserves_database_token_version(self):
+        def run(command):
+            if command[2] == "inspect" and command[3] == "sub2api":
+                return json.dumps(["JWT_SECRET=stale-secret"])
+            if command[2] == "inspect" and command[3] == "sub2api-postgres":
+                return json.dumps(["POSTGRES_USER=app", "POSTGRES_DB=sub2api"])
+            if "security_secrets" in command[-1]:
+                return "persisted-runtime-secret\n"
+            return "1\tadmin@example.com\tpassword-hash\tadmin\tactive\t7\n"
+
+        identity, _ = load_local_admin_material(run=run)
+
+        self.assertEqual(identity.token_version, 7)
+        self.assertEqual(
+            resolve_token_version(
+                identity.email, identity.password_hash, identity.token_version
+            ),
+            resolve_token_version("admin@example.com", "password-hash", 7),
+        )
 
     def test_build_admin_jwt_rejects_inactive_or_non_admin_identity(self):
         identities = [

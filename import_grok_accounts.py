@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -57,11 +58,16 @@ def write_report(path: Path, summary: ImportSummary) -> None:
     )
     temporary = Path(temporary_name)
     try:
+        os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as output:
             json.dump(summary.to_dict(), output, indent=2, sort_keys=True)
             output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
         os.replace(temporary, path)
-        os.chmod(path, 0o600)
+        final_info = os.lstat(path)
+        if not stat.S_ISREG(final_info.st_mode) or stat.S_IMODE(final_info.st_mode) != 0o600:
+            raise RuntimeError("report destination is not a regular private file")
     except Exception:
         try:
             os.close(descriptor)

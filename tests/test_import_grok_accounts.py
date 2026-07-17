@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -66,6 +67,29 @@ class ImporterCLITest(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertIn("fatal: active admin identity is required", stderr.getvalue())
         self.assertNotIn("Traceback", stderr.getvalue())
+
+    def test_report_never_chmods_a_swapped_destination_symlink(self):
+        summary = ImportSummary((ImportItem(1, "created", account_id=501),))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = root / "report.json"
+            victim = root / "victim.txt"
+            victim.write_text("keep-mode")
+            victim.chmod(0o640)
+            real_replace = os.replace
+
+            def replace_then_swap(source, destination):
+                real_replace(source, destination)
+                Path(destination).unlink()
+                Path(destination).symlink_to(victim)
+
+            with mock.patch(
+                "import_grok_accounts.os.replace", side_effect=replace_then_swap
+            ):
+                with self.assertRaisesRegex(RuntimeError, "regular private file"):
+                    write_report(report, summary)
+
+            self.assertEqual(victim.stat().st_mode & 0o777, 0o640)
 
     def test_report_does_not_follow_fixed_temporary_symlink(self):
         summary = ImportSummary((ImportItem(1, "created", account_id=501),))

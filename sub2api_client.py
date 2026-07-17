@@ -11,6 +11,7 @@ from http_json import SecureJSONTransport, Sub2APIError
 
 
 Transport = Callable[[str, str, dict[str, Any] | None, int], Any]
+SAFE_GROK_FAILURE_CODES = frozenset({"GROK_SSO_EXCHANGE_FAILED"})
 
 
 class Sub2APIClient:
@@ -75,6 +76,9 @@ class Sub2APIClient:
                     "type": account.get("type"),
                     "group_ids": account.get("group_ids"),
                     "credentials": account.get("credentials"),
+                    "concurrency": account.get("concurrency"),
+                    "priority": account.get("priority"),
+                    "rate_multiplier": account.get("rate_multiplier"),
                     "expires_at": account.get("expires_at"),
                     "auto_pause_on_expired": account.get("auto_pause_on_expired"),
                 }
@@ -111,7 +115,7 @@ class Sub2APIClient:
             if failed and isinstance(failed[0], dict):
                 error_text = str(failed[0].get("error", ""))
                 match = re.match(r"^([A-Z][A-Z0-9_]{1,79}):", error_text)
-                if match:
+                if match and match.group(1) in SAFE_GROK_FAILURE_CODES:
                     reason = f" ({match.group(1)})"
             raise Sub2APIError(f"Grok SSO conversion failed{reason}")
         account = created[0].get("account") if isinstance(created[0], dict) else None

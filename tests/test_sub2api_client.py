@@ -54,6 +54,9 @@ class Sub2APIClientTest(unittest.TestCase):
                     "type": "oauth",
                     "group_ids": [3],
                     "credentials": {},
+                    "concurrency": 10,
+                    "priority": 1,
+                    "rate_multiplier": 1,
                     "expires_at": None,
                     "auto_pause_on_expired": False,
                 }],
@@ -68,6 +71,9 @@ class Sub2APIClientTest(unittest.TestCase):
                     "type": "apikey",
                     "group_ids": [3],
                     "credentials": {"model_mapping": {"grok-3": "grok-3"}},
+                    "concurrency": 9,
+                    "priority": 2,
+                    "rate_multiplier": 1.5,
                     "expires_at": None,
                     "auto_pause_on_expired": False,
                 }],
@@ -85,6 +91,9 @@ class Sub2APIClientTest(unittest.TestCase):
             accounts["same"][1]["credentials"]["model_mapping"],
             {"grok-3": "grok-3"},
         )
+        self.assertEqual(accounts["same"][1]["concurrency"], 9)
+        self.assertEqual(accounts["same"][1]["priority"], 2)
+        self.assertEqual(accounts["same"][1]["rate_multiplier"], 1.5)
         self.assertIn("page=1", transport.calls[0][1])
         self.assertIn("page=2", transport.calls[1][1])
 
@@ -128,6 +137,20 @@ class Sub2APIClientTest(unittest.TestCase):
 
         self.assertNotIn("upstream", str(raised.exception))
         self.assertNotIn("secret-value", str(raised.exception))
+
+    def test_create_failure_rejects_unknown_uppercase_prefix(self):
+        transport = RecordingTransport([{
+            "created": [],
+            "failed": [{"error": "DUMMYSECRET: upstream detail"}],
+        }])
+        client = Sub2APIClient("http://localhost/api/v1", "token", transport=transport)
+        record = AccountRecord(1, "a@example.com", "secret", "sso-token")
+
+        with self.assertRaises(Sub2APIError) as caught:
+            client.create_grok_from_sso(record, group_id=3)
+
+        self.assertEqual(str(caught.exception), "Grok SSO conversion failed")
+        self.assertNotIn("DUMMYSECRET", str(caught.exception))
 
     def test_create_failure_does_not_expose_upstream_error_body(self):
         transport = RecordingTransport([{

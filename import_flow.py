@@ -53,19 +53,25 @@ class ImportSummary:
 ProgressCallback = Callable[[ImportItem, int, int], None]
 
 
-def _is_compliant_account(account: dict, *, group_id: int) -> bool:
+def _is_compliant_account(
+    account: dict, *, group_id: int, account_name: str
+) -> bool:
     group_ids = account.get("group_ids")
     credentials = account.get("credentials")
     model_mapping = (
         credentials.get("model_mapping") if isinstance(credentials, dict) else None
     )
     return (
-        account.get("platform") == "grok"
+        account.get("name") == account_name
+        and account.get("platform") == "grok"
         and account.get("type") == "oauth"
         and isinstance(group_ids, list)
         and group_ids == [group_id]
         and isinstance(credentials, dict)
         and model_mapping in (None, {})
+        and account.get("concurrency") == 10
+        and account.get("priority") == 1
+        and account.get("rate_multiplier") == 1
         and account.get("expires_at") is None
         and account.get("auto_pause_on_expired") is False
     )
@@ -101,7 +107,11 @@ def run_import(
             )
         elif len(matches) == 1:
             account = matches[0]
-            if _is_compliant_account(account, group_id=group_id):
+            if _is_compliant_account(
+                account,
+                group_id=group_id,
+                account_name=record.account_name,
+            ):
                 item = ImportItem(
                     record.line_number,
                     "skipped",
@@ -119,7 +129,11 @@ def run_import(
                 account = client.create_grok_from_sso(record, group_id=group_id)
                 existing_accounts.setdefault(record.account_name, []).append(account)
                 account_id = _account_id(account)
-                if not _is_compliant_account(account, group_id=group_id):
+                if not _is_compliant_account(
+                    account,
+                    group_id=group_id,
+                    account_name=record.account_name,
+                ):
                     item = ImportItem(
                         record.line_number,
                         "failed",

@@ -1,7 +1,9 @@
 import json
+import os
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest import mock
 
 from http_json import SecureJSONTransport, validate_base_url
 from sub2api_client import Sub2APIError
@@ -50,6 +52,37 @@ class SecureJSONTransportTest(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError):
                     validate_base_url(value)
+
+    def test_environment_proxy_never_receives_admin_jwt_or_sso(self):
+        proxy_requests = []
+
+        class ProxyHandler(QuietHandler):
+            def do_POST(self):
+                proxy_requests.append((self.headers, self.rfile.read()))
+                self.send_response(502)
+                self.end_headers()
+
+        with ServerFixture(ProxyHandler) as proxy_base_url:
+            proxy_origin = proxy_base_url.removesuffix("/api/v1")
+            environment = {
+                "HTTP_PROXY": proxy_origin,
+                "http_proxy": proxy_origin,
+                "NO_PROXY": "",
+                "no_proxy": "",
+            }
+            with mock.patch.dict(os.environ, environment, clear=False):
+                transport = SecureJSONTransport(
+                    "http://127.0.0.2:9/api/v1", lambda: "admin-jwt"
+                )
+                with self.assertRaises(Sub2APIError):
+                    transport(
+                        "POST",
+                        "/admin/grok/sso-to-oauth",
+                        {"sso_tokens": ["sso-secret"]},
+                        1,
+                    )
+
+        self.assertEqual(proxy_requests, [])
 
     def test_redirect_is_not_followed_with_admin_jwt_or_sso(self):
         target_requests = []
