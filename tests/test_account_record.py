@@ -18,12 +18,14 @@ class ParseAccountRecordsTest(unittest.TestCase):
         )
 
     def test_rejects_ambiguous_registration_output(self):
-        with self.assertRaisesRegex(
-            RecordValidationError, "round-trip safely"
-        ):
-            format_account_record(
-                "user@example.com", "pass|word", "sso-token"
-            )
+        for password in ("pass|word", "pass\nword", "pass\rword"):
+            with self.subTest(password=repr(password)):
+                with self.assertRaisesRegex(
+                    RecordValidationError, "round-trip safely"
+                ):
+                    format_account_record(
+                        "user@example.com", password, "sso-token"
+                    )
 
     def test_parses_three_fields_and_preserves_requested_name(self):
         records = parse_account_records(["a@example.com|secret|sso-token"])

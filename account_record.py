@@ -77,7 +77,10 @@ def parse_account_records(lines: Iterable[str]) -> list[AccountRecord]:
 def format_account_record(email: str, password: str, sso: str) -> str:
     """Serialize one registration result only if it round-trips losslessly."""
     line = f"{email}|{password}|{sso}"
-    parsed = parse_account_records([line])[0]
+    file_lines = line.splitlines()
+    if len(file_lines) != 1:
+        raise RecordValidationError("record fields cannot round-trip safely")
+    parsed = parse_account_records(file_lines)[0]
     if (parsed.email, parsed.password, parsed.sso) != (email, password, sso):
         raise RecordValidationError("record fields cannot round-trip safely")
     return line

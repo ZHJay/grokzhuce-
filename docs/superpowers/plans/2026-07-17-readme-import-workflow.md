@@ -40,8 +40,9 @@ def test_formats_registration_output_for_importer():
 
 
 def test_rejects_ambiguous_registration_output():
-    with pytest.raises(RecordValidationError):
-        format_account_record("user@example.com", "pass|word", "sso-token")
+    for password in ("pass|word", "pass\nword", "pass\rword"):
+        with pytest.raises(RecordValidationError):
+            format_account_record("user@example.com", password, "sso-token")
 ```
 
 实际仓库使用 `unittest`，实现时将断言写成现有 `TestCase` 风格。
@@ -61,7 +62,10 @@ python3 -m unittest tests.test_account_record -v
 ```python
 def format_account_record(email: str, password: str, sso: str) -> str:
     line = f"{email}|{password}|{sso}"
-    parsed = parse_account_records([line])[0]
+    file_lines = line.splitlines()
+    if len(file_lines) != 1:
+        raise RecordValidationError("record fields cannot round-trip safely")
+    parsed = parse_account_records(file_lines)[0]
     if (parsed.email, parsed.password, parsed.sso) != (email, password, sso):
         raise RecordValidationError("record fields cannot round-trip safely")
     return line
