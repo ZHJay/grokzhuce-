@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from account_record import RecordValidationError, parse_account_records
@@ -48,9 +49,13 @@ def print_progress(item: ImportItem, current: int, total: int) -> None:
 def write_report(path: Path, summary: ImportSummary) -> None:
     """Atomically replace a private, credential-free JSON report."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    descriptor = os.open(temporary, flags, 0o600)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        text=True,
+    )
+    temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as output:
             json.dump(summary.to_dict(), output, indent=2, sort_keys=True)
@@ -59,9 +64,11 @@ def write_report(path: Path, summary: ImportSummary) -> None:
         os.chmod(path, 0o600)
     except Exception:
         try:
-            temporary.unlink(missing_ok=True)
-        finally:
-            raise
+            os.close(descriptor)
+        except OSError:
+            pass
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
