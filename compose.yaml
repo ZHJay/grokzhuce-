@@ -1,0 +1,47 @@
+services:
+  solver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    restart: unless-stopped
+    init: true
+    network_mode: host
+    env_file:
+      - .env
+    command:
+      - api_solver.py
+      - --browser_type
+      - ${SOLVER_BROWSER_TYPE:-chromium}
+      - --thread
+      - ${SOLVER_THREADS:-1}
+      - --host
+      - 127.0.0.1
+      - --port
+      - "5072"
+    shm_size: "128m"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5072/ >/dev/null"]
+      interval: 30s
+      timeout: 8s
+      retries: 5
+      start_period: 120s
+
+  runner:
+    profiles: ["runner"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    init: true
+    network_mode: host
+    env_file:
+      - .env
+    command: ["grok.py"]
+    depends_on:
+      solver:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./keys:/app/keys

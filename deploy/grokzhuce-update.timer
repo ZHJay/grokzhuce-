@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll ZHJay/grokzhuce- main for deployment updates
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=grokzhuce-update.service
+
+[Install]
+WantedBy=timers.target

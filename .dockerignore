@@ -1,0 +1,10 @@
+.git
+.github
+.env
+.env.*
+keys
+private
+reports
+.DS_Store
+__pycache__
+*.py[cod]

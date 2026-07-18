@@ -1,0 +1,48 @@
+name: Deploy VDS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vds-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install sshpass
+        run: |
+          if ! command -v sshpass >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y sshpass
+          fi
+
+      - name: Pin VDS host key
+        env:
+          VDS_KNOWN_HOSTS: ${{ secrets.VDS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VDS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Update VDS
+        env:
+          VDS_HOST: ${{ secrets.VDS_HOST }}
+          VDS_PORT: ${{ secrets.VDS_PORT }}
+          VDS_USER: ${{ secrets.VDS_USER }}
+          VDS_PASSWORD: ${{ secrets.VDS_PASSWORD }}
+          VDS_DEPLOY_PATH: ${{ secrets.VDS_DEPLOY_PATH }}
+        run: |
+          SSHPASS="$VDS_PASSWORD" sshpass -e ssh \\
+            -p "$VDS_PORT" \\
+            -o PreferredAuthentications=password \\
+            -o PubkeyAuthentication=no \\
+            -o StrictHostKeyChecking=yes \\
+            "$VDS_USER@$VDS_HOST" \\
+            "cd '$VDS_DEPLOY_PATH' && DEPLOY_BRANCH=main bash deploy/deploy.sh"
