@@ -39,10 +39,10 @@ jobs:
           VDS_PASSWORD: ${{ secrets.VDS_PASSWORD }}
           VDS_DEPLOY_PATH: ${{ secrets.VDS_DEPLOY_PATH }}
         run: |
-          SSHPASS="$VDS_PASSWORD" sshpass -e ssh \\
-            -p "$VDS_PORT" \\
-            -o PreferredAuthentications=password \\
-            -o PubkeyAuthentication=no \\
-            -o StrictHostKeyChecking=yes \\
-            "$VDS_USER@$VDS_HOST" \\
+          SSHPASS="$VDS_PASSWORD" sshpass -e ssh \
+            -p "$VDS_PORT" \
+            -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no \
+            -o StrictHostKeyChecking=yes \
+            "$VDS_USER@$VDS_HOST" \
             "cd '$VDS_DEPLOY_PATH' && DEPLOY_BRANCH=main bash deploy/deploy.sh"
